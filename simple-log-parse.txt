@@ -1,0 +1,66 @@
+# 1) insert sample document
+
+PUT /logs/apache/1
+{
+  "message": "83.149.9.216 - - [17/May/2015:10:05:43 +0000] \"GET /presentations/logstash-monitorama-2013/images/kibana-dashboard3.png HTTP/1.1\" 200 171717 \"http://semicomplete.com/presentations/logstash-monitorama-2013/\" \"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_9_1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/32.0.1700.77 Safari/537.36\""
+}
+
+# 2) Verify document was inserted
+
+GET logs/apache/_search
+
+# 3) Delete document
+
+DELETE /logs/apache/1
+
+# 4) Test the pipeline using the Simulate Pipeline API
+
+POST _ingest/pipeline/_simulate
+{
+  "pipeline": {
+    "description": "parse apache http logs",
+    "processors": [
+      {
+        "grok": {
+          "field": "message",
+          "patterns": ["%{IPORHOST:clientip} %{USER:ident} %{USER:auth} \\[%{HTTPDATE:timestamp}\\] \"%{WORD:verb} %{DATA:request} HTTP/%{NUMBER:httpversion}\" %{NUMBER:response:int} (?:-|%{NUMBER:bytes:int}) %{QS:referrer} %{QS:agent}"]
+        }
+      }
+    ]
+  },
+  "docs": [
+    {
+      "_index": "logs",
+      "_type": "apache",
+      "_id": "1",
+      "_source": {
+        "message": "83.149.9.216 - - [17/May/2015:10:05:43 +0000] \"GET /presentations/logstash-monitorama-2013/images/kibana-dashboard3.png HTTP/1.1\" 200 171717 \"http://semicomplete.com/presentations/logstash-monitorama-2013/\" \"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_9_1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/32.0.1700.77 Safari/537.36\""
+      }
+    }
+  ]
+}
+
+# 5) insert pipeline to parse doc; makes sense to just do grok first
+
+
+PUT _ingest/pipeline/process-apache-logs
+{
+  "description": "process apache http logs",
+  "processors": [
+    {
+      "grok": {
+        "field": "message",
+        "patterns": ["%{IPORHOST:clientip} %{USER:ident} %{USER:auth} \\[%{HTTPDATE:timestamp}\\] \"%{WORD:verb} %{DATA:request} HTTP/%{NUMBER:httpversion}\" %{NUMBER:response:int} (?:-|%{NUMBER:bytes:int}) %{QS:referrer} %{QS:agent}"]
+      }
+    }
+  ]
+}
+
+# 6) Insert doc with pipeline parameter
+
+PUT /logs/apache/1?pipeline=process-apache-logs
+{
+  "message": "83.149.9.216 - - [17/May/2015:10:05:43 +0000] \"GET /presentations/logstash-monitorama-2013/images/kibana-dashboard3.png HTTP/1.1\" 200 171717 \"http://semicomplete.com/presentations/logstash-monitorama-2013/\" \"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_9_1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/32.0.1700.77 Safari/537.36\""
+}
+
+# 7) Try adding more processors to your pipeline! e.g. date processor
